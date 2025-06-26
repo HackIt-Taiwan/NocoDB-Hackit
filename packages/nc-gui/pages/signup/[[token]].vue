@@ -211,6 +211,17 @@ onMounted(async () => {
                 </a>
               </div>
 
+              <a
+                v-if="appInfo.hackitAuthEnabled"
+                :href="`${appInfo.ncSiteUrl}/auth/hackit?state=hackit`"
+                class="scaling-btn bg-opacity-100 after:(!bg-white) !text-primary !no-underline"
+              >
+                <span class="flex items-center gap-2">
+                  <MdiLogin />
+                  {{ $t('labels.signUpWithProvider', { provider: 'HackIt SSO' }) }}
+                </span>
+              </a>
+
               <div v-if="!appInfo.disableEmailAuth" class="flex items-center gap-2">
                 <a-switch
                   v-model:checked="subscribe"

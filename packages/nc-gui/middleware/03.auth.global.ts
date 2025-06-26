@@ -52,6 +52,18 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     await tryGoogleAuth(api, state.signIn)
   }
 
+  /** if user isn't signed in and only HackIt SSO is enabled, redirect to HackIt SSO */
+  if (
+    !state.signedIn.value && 
+    state.appInfo.value.hackitAuthEnabled && 
+    state.appInfo.value.disableEmailAuth && 
+    !state.appInfo.value.googleAuthEnabled &&
+    to.meta.requiresAuth !== false &&
+    to.path !== '/sso'
+  ) {
+    return navigateTo('/sso')
+  }
+
   /** Try token population based on short-lived-token */
   await tryShortTokenAuth(api, state.signIn)
 
@@ -139,6 +151,8 @@ async function tryGoogleAuth(api: Api<any>, signIn: Actions['signIn']) {
         authProvider = 'github'
       } else if (window.location.search.includes('state=oidc')) {
         authProvider = 'oidc'
+      } else if (window.location.search.includes('state=hackit')) {
+        authProvider = 'hackit'
       }
 
       // `extra` prop is used in our cloud implementation, so we are keeping it

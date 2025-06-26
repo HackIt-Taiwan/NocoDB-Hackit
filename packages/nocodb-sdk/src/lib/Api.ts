@@ -3671,6 +3671,26 @@ export interface BaseType {
   title?: string;
   /** ID of custom url */
   fk_custom_url_id?: StringOrNullType;
+  /** List of permissions for the base */
+  permissions?: {
+    /** Permission entity */
+    entity: string;
+    /** ID of the entity */
+    entity_id: string;
+    /** Permission key */
+    permission: string;
+    /** Type of permission granted */
+    granted_type: string;
+    /** Role to which permission is granted */
+    granted_role?: string | null;
+    /** List of subjects (users or groups) for the permission */
+    subjects?: {
+      /** Type of the subject */
+      type: 'user' | 'group';
+      /** ID of the subject */
+      id: string;
+    }[];
+  }[];
 }
 
 /**

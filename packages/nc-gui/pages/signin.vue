@@ -176,6 +176,17 @@ function navigateForgotPassword() {
                 </a>
               </div>
 
+              <a
+                v-if="appInfo.hackitAuthEnabled"
+                :href="`${appInfo.ncSiteUrl}/auth/hackit?state=hackit`"
+                class="scaling-btn bg-opacity-100 after:(!bg-white) !text-primary !no-underline"
+              >
+                <span class="flex items-center gap-2">
+                  <MdiLogin />
+                  {{ $t('labels.signInWithProvider', { provider: 'HackIt SSO' }) }}
+                </span>
+              </a>
+
               <div v-if="!appInfo.inviteOnlySignup" class="text-end prose-sm">
                 {{ $t('msg.info.signUp.dontHaveAccount') }}
                 <nuxt-link @click="navigateSignUp">{{ $t('general.signUp') }}</nuxt-link>

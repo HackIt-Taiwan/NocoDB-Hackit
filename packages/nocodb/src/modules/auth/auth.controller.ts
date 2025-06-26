@@ -122,6 +122,20 @@ export class AuthController {
     // google strategy will take care the request
   }
 
+  @Post(`/auth/hackit/genTokenByCode`)
+  @HttpCode(200)
+  @UseGuards(PublicApiLimiterGuard, AuthGuard('hackit'))
+  async hackitSignin(@Req() req: NcRequest, @Res() res: Response) {
+    await this.setRefreshToken({ req, res });
+    res.json(await this.usersService.login(req.user, req));
+  }
+
+  @Get('/auth/hackit')
+  @UseGuards(PublicApiLimiterGuard, AuthGuard('hackit'))
+  hackitAuthenticate() {
+    // hackit strategy will take care the request
+  }
+
   @Get([
     '/auth/user/me',
     '/api/v1/db/auth/user/me',

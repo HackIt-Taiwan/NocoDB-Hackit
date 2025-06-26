@@ -435,6 +435,10 @@ export class UtilsService {
       ? process.env.NC_SSO_SAML_PROVIDER_NAME ?? 'SAML'
       : null;
 
+    const hackitAuthEnabled = !!(
+      process.env.NC_HACKIT_CLIENT_ID && process.env.NC_HACKIT_CLIENT_SECRET
+    );
+
     const result = {
       authType: 'jwt',
       baseHasAdmin,
@@ -482,6 +486,7 @@ export class UtilsService {
       inviteOnlySignup: settings.invite_only_signup,
       samlProviderName,
       samlAuthEnabled,
+      hackitAuthEnabled,
       giftUrl,
       prodReady: Noco.getConfig()?.meta?.db?.client !== DriverClient.SQLITE,
       allowLocalUrl: process.env.NC_ALLOW_LOCAL_HOOKS === 'true',
