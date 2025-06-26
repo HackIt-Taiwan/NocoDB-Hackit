@@ -118,16 +118,21 @@ export const HackItStrategyProvider: FactoryProvider = {
   provide: HackItStrategy,
   inject: [UsersService],
   useFactory: async (usersService: UsersService) => {
+    // Only initialize if environment variables are set
+    if (!process.env.NC_HACKIT_CLIENT_ID || !process.env.NC_HACKIT_CLIENT_SECRET) {
+      return new HackItStrategy(null, usersService);
+    }
+
     const issuerUrl = process.env.NC_HACKIT_ISSUER || 'https://sso.hackit.tw';
     
     const clientConfig = {
-      clientID: process.env.NC_HACKIT_CLIENT_ID ?? 'dummy-id',
-      clientSecret: process.env.NC_HACKIT_CLIENT_SECRET ?? 'dummy-secret',
+      clientID: process.env.NC_HACKIT_CLIENT_ID,
+      clientSecret: process.env.NC_HACKIT_CLIENT_SECRET,
       issuer: issuerUrl,
       authorizationURL: `${issuerUrl}/auth`,
       tokenURL: `${issuerUrl}/token`,
       userInfoURL: `${issuerUrl}/userinfo`,
-      callbackURL: 'http://localhost:8080/auth/hackit/callback',
+      callbackURL: '/auth/hackit/callback', // Will be dynamically set in authenticate method
       passReqToCallback: true,
       scope: ['openid', 'profile', 'email'],
     };
