@@ -96,7 +96,7 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
     }
 
     const issuerUrl = process.env.NC_HACKIT_ISSUER || 'https://sso.hackit.tw';
-    const callbackURL = req.ncSiteUrl + Noco.getConfig().dashboardPath;
+    const callbackURL = req.ncSiteUrl + '/auth/hackit/callback';
 
     return super.authenticate(req, {
       ...options,
@@ -127,7 +127,7 @@ export const HackItStrategyProvider: FactoryProvider = {
       authorizationURL: `${issuerUrl}/auth`,
       tokenURL: `${issuerUrl}/token`,
       userInfoURL: `${issuerUrl}/userinfo`,
-      callbackURL: 'http://localhost:8080/dashboard',
+      callbackURL: 'http://localhost:8080/auth/hackit/callback',
       passReqToCallback: true,
       scope: ['openid', 'profile', 'email'],
     };

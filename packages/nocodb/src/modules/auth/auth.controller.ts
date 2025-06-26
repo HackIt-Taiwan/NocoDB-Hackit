@@ -122,6 +122,15 @@ export class AuthController {
     // google strategy will take care the request
   }
 
+  @Get(`/auth/hackit/callback`)
+  @UseGuards(PublicApiLimiterGuard, AuthGuard('hackit'))
+  async hackitCallback(@Req() req: NcRequest, @Res() res: Response) {
+    await this.setRefreshToken({ req, res });
+    // Redirect to dashboard after successful authentication
+    const dashboardPath = this.config.get('dashboardPath', { infer: true });
+    return res.redirect(req.ncSiteUrl + dashboardPath);
+  }
+
   @Post(`/auth/hackit/genTokenByCode`)
   @HttpCode(200)
   @UseGuards(PublicApiLimiterGuard, AuthGuard('hackit'))
