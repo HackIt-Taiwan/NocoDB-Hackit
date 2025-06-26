@@ -146,24 +146,29 @@ export default class Noco {
       process.env.NC_DISABLE_TELE = 'true';
     }
 
-    nestApp.use(requestIp.mw());
-    nestApp.use(cookieParser());
-
-    // This is required for OpenID Connect based SSO to work
-    nestApp.use(
-      session({
-        secret: process.env.NC_SESSION_SECRET || uuidv4(),
-        resave: false,
-        saveUninitialized: false,
-        cookie: { secure: 'auto' },
-      }),
-    );
-
     nestApp.useWebSocketAdapter(new IoAdapter(httpServer));
     NcDebug.log('Websocket adapter initialized');
 
     this._httpServer = nestApp.getHttpAdapter().getInstance();
     this._server = server;
+
+    nestApp.use(requestIp.mw());
+    nestApp.use(cookieParser());
+    
+    // Add session support for OpenID Connect
+    nestApp.use(session({
+      secret: process.env.NC_SESSION_SECRET || 'nocodb-session-secret-' + Date.now(),
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      },
+    }));
+
+    nestApp.useWebSocketAdapter(new IoAdapter(httpServer));
+    NcDebug.log('Websocket adapter initialized');
 
     await nestApp.init();
     NcDebug.log('Nest app initialized');

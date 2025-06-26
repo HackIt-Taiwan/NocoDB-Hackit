@@ -23,8 +23,11 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
 
   async validate(
     req: NcRequest,
-    issuer: string,
+    iss: string,
+    sub: string,
     profile: any,
+    accessToken: string,
+    refreshToken: string,
     done: VerifyCallback,
   ): Promise<any> {
     const email = profile.emails?.[0]?.value || profile.email;
@@ -89,9 +92,7 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
     }
 
     if (!process.env.NC_HACKIT_CLIENT_ID || !process.env.NC_HACKIT_CLIENT_SECRET) {
-      return this.error({
-        message: 'HackIt client id or secret not found. Please add environment variables NC_HACKIT_CLIENT_ID and NC_HACKIT_CLIENT_SECRET.',
-      });
+      return this.error(new Error('HackIt client id or secret not found. Please add environment variables NC_HACKIT_CLIENT_ID and NC_HACKIT_CLIENT_SECRET.'));
     }
 
     const issuerUrl = process.env.NC_HACKIT_ISSUER || 'https://sso.hackit.tw';
