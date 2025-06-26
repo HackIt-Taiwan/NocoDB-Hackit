@@ -1,0 +1,29 @@
+services:
+  nocodb:
+    image: ghcr.io/hackit-taiwan/nocodb-hackit:latest
+    ports:
+      - "3001:8080"
+    environment:
+      NC_PUBLIC_URL: ${NC_PUBLIC_URL:-https://data.hackit.tw}
+      NC_DB: ${NC_DB:-pg://user:password@postgres:5432/nocodb}
+      NC_AUTH_JWT_SECRET: ${NC_JWT_SECRET:-replace_this_with_env}
+      NC_DISABLE_SIGNUP: ${NC_DISABLE_SIGNUP:-true}
+      NC_DISABLE_TELEMETRY: ${NC_DISABLE_TELEMETRY:-true}
+      NC_DEFAULT_LANG: ${NC_DEFAULT_LANG:-zh-TW}
+      NC_ENABLE_ANONYMOUS_ACCESS: ${NC_ENABLE_ANONYMOUS_ACCESS:-false}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: nocodb
+    volumes:
+      - nocodb-pg:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  nocodb-pg:

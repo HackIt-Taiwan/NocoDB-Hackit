@@ -1,0 +1,52 @@
+name: Build and Publish NocoDB Docker Image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install PNPM
+        run: npm install -g pnpm
+
+      - name: Setup Node.js with PNPM Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install Dependencies and Build Docker Image
+        run: |
+          chmod +x ./build-local-docker-image.sh
+          ./build-local-docker-image.sh
+
+      - name: Tag Docker Image
+        run: |
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker tag nocodb-local ghcr.io/${REPO_OWNER_LOWER}/nocodb-hackit:latest
+
+      - name: Push Docker Image to GitHub Packages
+        run: |
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker push ghcr.io/${REPO_OWNER_LOWER}/nocodb-hackit:latest
