@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import requestIp from 'request-ip';
 import cookieParser from 'cookie-parser';
+import session from 'express-session';
 import { NcDebug } from 'nc-gui/utils/debug';
 import type { INestApplication } from '@nestjs/common';
 import type { MetaService } from '~/meta/meta.service';
@@ -145,17 +146,24 @@ export default class Noco {
       process.env.NC_DISABLE_TELE = 'true';
     }
 
+    nestApp.use(requestIp.mw());
+    nestApp.use(cookieParser());
+
+    // This is required for OpenID Connect based SSO to work
+    nestApp.use(
+      session({
+        secret: process.env.NC_SESSION_SECRET || uuidv4(),
+        resave: false,
+        saveUninitialized: false,
+        cookie: { secure: 'auto' },
+      }),
+    );
+
     nestApp.useWebSocketAdapter(new IoAdapter(httpServer));
     NcDebug.log('Websocket adapter initialized');
 
     this._httpServer = nestApp.getHttpAdapter().getInstance();
     this._server = server;
-
-    nestApp.use(requestIp.mw());
-    nestApp.use(cookieParser());
-
-    nestApp.useWebSocketAdapter(new IoAdapter(httpServer));
-    NcDebug.log('Websocket adapter initialized');
 
     await nestApp.init();
     NcDebug.log('Nest app initialized');
