@@ -10,6 +10,26 @@ const route = useRoute()
 
 const { signIn: _signIn, appInfo } = useGlobal()
 
+// Check if only HackIt SSO is enabled, redirect directly
+if (process.client) {
+  watchEffect(() => {
+    if (
+      appInfo.value.hackitAuthEnabled && 
+      appInfo.value.disableEmailAuth && 
+      !appInfo.value.googleAuthEnabled &&
+      !appInfo.value.oidcAuthEnabled &&
+      !appInfo.value.samlAuthEnabled
+    ) {
+      // Store the continue path
+      if (route.query?.continueAfterSignIn) {
+        localStorage.setItem('continueAfterSignIn', route.query.continueAfterSignIn as string)
+      }
+      // Redirect directly to HackIt SSO
+      window.location.href = `${appInfo.value.ncSiteUrl}/auth/hackit?state=hackit`
+    }
+  })
+}
+
 const { api, isLoading, error } = useApi({ useGlobalInstance: true })
 
 const { t } = useI18n()
@@ -86,7 +106,21 @@ function navigateForgotPassword() {
         data-testid="nc-form-signin"
         class="md:bg-primary bg-opacity-5 signin h-full min-h-[600px] flex flex-col justify-center items-center nc-form-signin"
       >
-        <div
+        <!-- Show loading while checking SSO configuration -->
+        <div v-if="appInfo.hackitAuthEnabled && appInfo.disableEmailAuth && !appInfo.googleAuthEnabled && !appInfo.oidcAuthEnabled && !appInfo.samlAuthEnabled" 
+             class="bg-white mt-[60px] relative flex flex-col justify-center gap-2 w-full max-w-[500px] mx-auto p-8 md:(rounded-lg border-1 border-gray-200 shadow-xl)">
+          <LazyGeneralNocoIcon class="color-transition hover:(ring ring-accent ring-opacity-100)" :animate="true" />
+          <div class="self-center flex flex-col justify-center items-center text-center gap-4">
+            <h1 class="prose-2xl font-bold my-4 w-full">正在重定向到 HackIt SSO...</h1>
+            <div class="flex items-center gap-2">
+              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              <span>請稍候...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Traditional login form (only shown if other auth methods are available) -->
+        <div v-else
           class="bg-white mt-[60px] relative flex flex-col justify-center gap-2 w-full max-w-[500px] mx-auto p-8 md:(rounded-lg border-1 border-gray-200 shadow-xl)"
         >
           <LazyGeneralNocoIcon class="color-transition hover:(ring ring-accent ring-opacity-100)" :animate="isLoading" />
@@ -187,7 +221,7 @@ function navigateForgotPassword() {
                 </span>
               </a>
 
-              <div v-if="!appInfo.inviteOnlySignup" class="text-end prose-sm">
+              <div v-if="!appInfo.inviteOnlySignup && !appInfo.disableEmailAuth" class="text-end prose-sm">
                 {{ $t('msg.info.signUp.dontHaveAccount') }}
                 <nuxt-link @click="navigateSignUp">{{ $t('general.signUp') }}</nuxt-link>
               </div>

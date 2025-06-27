@@ -37,6 +37,7 @@ export interface AppInfo {
   inviteOnlySignup: boolean
   samlAuthEnabled: boolean
   samlProviderName: string | null
+  hackitAuthEnabled: boolean
   giftUrl: string
   feedEnabled: boolean
   sentryDSN: string

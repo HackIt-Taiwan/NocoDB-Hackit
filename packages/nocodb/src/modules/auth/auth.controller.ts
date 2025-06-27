@@ -47,6 +47,13 @@ export class AuthController {
     if (this.config.get('auth', { infer: true }).disableEmailAuth) {
       NcError.forbidden('Email authentication is disabled');
     }
+    
+    // Check if only HackIt SSO is enabled
+    const hackitEnabled = await this.isHackItSSOEnabled();
+    if (hackitEnabled && this.config.get('auth', { infer: true }).disableEmailAuth) {
+      NcError.forbidden('Traditional signup is disabled. Please use HackIt SSO to authenticate.');
+    }
+    
     res.json(
       await this.usersService.signup({
         body: req.body,
@@ -89,6 +96,13 @@ export class AuthController {
     if (this.config.get('auth', { infer: true }).disableEmailAuth) {
       NcError.forbidden('Email authentication is disabled');
     }
+    
+    // Check if only HackIt SSO is enabled
+    const hackitEnabled = await this.isHackItSSOEnabled();
+    if (hackitEnabled && this.config.get('auth', { infer: true }).disableEmailAuth) {
+      NcError.forbidden('Traditional signin is disabled. Please use HackIt SSO to authenticate.');
+    }
+    
     await this.setRefreshToken({ req, res });
     res.json(await this.usersService.login(req.user, req));
   }
@@ -296,5 +310,14 @@ export class AuthController {
 
   async setRefreshToken({ res, req }) {
     await this.usersService.setRefreshToken({ res, req });
+  }
+
+  private async isHackItSSOEnabled(): Promise<boolean> {
+    try {
+      const hackitPlugin = await (await import('~/models')).Plugin.getPluginByTitle('HackIt');
+      return !!(hackitPlugin && hackitPlugin.input && process.env.NC_HACKIT_CLIENT_ID);
+    } catch (e) {
+      return !!(process.env.NC_HACKIT_CLIENT_ID && process.env.NC_HACKIT_CLIENT_SECRET);
+    }
   }
 }

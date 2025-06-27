@@ -75,8 +75,21 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
   /** if auth is required or unspecified (same `as required) and user is not signed in, redirect to signin page */
   if ((to.meta.requiresAuth || typeof to.meta.requiresAuth === 'undefined') && !state.signedIn.value) {
+    /** If only HackIt SSO is enabled, redirect directly to HackIt SSO */
+    if (
+      state.appInfo.value.hackitAuthEnabled && 
+      state.appInfo.value.disableEmailAuth && 
+      !state.appInfo.value.googleAuthEnabled &&
+      to.path !== '/sso'
+    ) {
+      localStorage.setItem('continueAfterSignIn', to.fullPath)
+      // Direct redirect to HackIt SSO
+      window.location.href = `${state.appInfo.value.ncSiteUrl}/auth/hackit?state=hackit`
+      return
+    }
+
     /** If this is the first usern navigate to signup page directly */
-    if (state.appInfo.value.firstUser) {
+    if (state.appInfo.value.firstUser && !state.appInfo.value.disableEmailAuth) {
       const query = to.fullPath !== '/' && to.fullPath.match(/^\/(?!\?)/) ? { continueAfterSignIn: to.fullPath } : {}
       if (query.continueAfterSignIn) {
         localStorage.setItem('continueAfterSignIn', query.continueAfterSignIn)
@@ -98,6 +111,17 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     /** if user is still not signed in, redirect to signin page */
     if (!state.signedIn.value) {
       localStorage.setItem('continueAfterSignIn', to.fullPath)
+      
+      // If only HackIt SSO is enabled, redirect directly
+      if (
+        state.appInfo.value.hackitAuthEnabled && 
+        state.appInfo.value.disableEmailAuth && 
+        !state.appInfo.value.googleAuthEnabled
+      ) {
+        window.location.href = `${state.appInfo.value.ncSiteUrl}/auth/hackit?state=hackit`
+        return
+      }
+      
       return navigateTo({
         path: '/signin',
         query: to.fullPath !== '/' && to.fullPath.match(/^\/(?!\?)/) ? { continueAfterSignIn: to.fullPath } : {},
