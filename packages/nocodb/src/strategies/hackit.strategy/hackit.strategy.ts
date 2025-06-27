@@ -21,22 +21,34 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
     super(clientConfig);
   }
 
+  // When passReqToCallback is true, the verify callback for OpenIDConnect has these parameters:
+  // req, iss, uiProfile, idProfile, context, idToken, accessToken, refreshToken, params, done
   async validate(
     req: NcRequest,
     iss: string,
-    sub: string,
-    profile: any,
-    accessToken: string,
-    refreshToken: string,
+    uiProfile: any,
+    idProfile: any,
+    context: any,
+    idToken: string | undefined,
+    accessToken: string | undefined,
+    refreshToken: string | undefined,
+    params: any,
     done: VerifyCallback,
   ): Promise<any> {
-    const email = profile.emails?.[0]?.value || profile.email;
-    
-    if (!email) {
-      return done(new Error('No email found in HackIt profile'));
-    }
-
     try {
+      // Use uiProfile if available, otherwise use idProfile
+      const profile = uiProfile || idProfile || {};
+      
+      // Try multiple ways to get email
+      const email = profile.email || 
+                   profile.emails?.[0]?.value || 
+                   idProfile?.email ||
+                   idProfile?.emails?.[0]?.value;
+      
+      if (!email) {
+        return done(new Error('No email found in HackIt profile'));
+      }
+
       const user = await User.getByEmail(email);
       if (user) {
         // if base id defined extract base level roles
