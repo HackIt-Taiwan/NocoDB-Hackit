@@ -22,19 +22,19 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
   }
 
   // When passReqToCallback is true, the verify callback for OpenIDConnect has these parameters:
-  // req, iss, uiProfile, idProfile, context, idToken, accessToken, refreshToken, params, done
+  // req, issuer, uiProfile, idProfile, context, idToken, accessToken, refreshToken, params, done
   async validate(
     req: NcRequest,
-    iss: string,
+    issuer: string,
     uiProfile: any,
     idProfile: any,
     context: any,
-    idToken: string | undefined,
-    accessToken: string | undefined,
+    idToken: string | object | undefined,
+    accessToken: string | object | undefined,
     refreshToken: string | undefined,
     params: any,
     done: VerifyCallback,
-  ): Promise<any> {
+  ): Promise<void> {
     try {
       // Use uiProfile if available, otherwise use idProfile
       const profile = uiProfile || idProfile || {};
@@ -46,21 +46,26 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
                    idProfile?.emails?.[0]?.value;
       
       if (!email) {
-        return done(new Error('No email found in HackIt profile'));
+        done(new Error('No email found in HackIt profile'));
+        return;
       }
 
       const user = await User.getByEmail(email);
       if (user) {
         // if base id defined extract base level roles
         if (req.ncBaseId) {
-          BaseUser.get(req.context, req.ncBaseId, user.id)
-            .then(async (baseUser) => {
-              user.roles = baseUser?.roles || user.roles;
-              done(null, sanitiseUserObj(user));
-            })
-            .catch((e) => done(e));
+          try {
+            const baseUser = await BaseUser.get(req.context, req.ncBaseId, user.id);
+            user.roles = baseUser?.roles || user.roles;
+            done(null, sanitiseUserObj(user));
+            return;
+          } catch (e) {
+            done(e);
+            return;
+          }
         } else {
-          return done(null, sanitiseUserObj(user));
+          done(null, sanitiseUserObj(user));
+          return;
         }
       } else {
         // Create new user if allowed
@@ -75,11 +80,13 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
           req,
         } as any;
 
-        const user = await this.usersService.registerNewUserIfAllowed(userData);
-        return done(null, sanitiseUserObj(user));
+        const newUser = await this.usersService.registerNewUserIfAllowed(userData);
+        done(null, sanitiseUserObj(newUser));
+        return;
       }
     } catch (err) {
-      return done(err);
+      done(err);
+      return;
     }
   }
 
