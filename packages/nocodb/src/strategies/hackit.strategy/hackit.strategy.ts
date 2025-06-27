@@ -46,13 +46,17 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
       } else {
         // Create new user if allowed
         const salt = await promisify(bcrypt.genSalt)(10);
+        // Safely extract name parts
+        const fullName = typeof profile.name === 'string' ? profile.name : '';
+        const nameParts = fullName.split(' ');
+        
         const userData = {
           email_verification_token: null,
           email: email,
           password: '',
           salt,
-          firstname: profile.given_name || profile.name?.split(' ')[0] || '',
-          lastname: profile.family_name || profile.name?.split(' ').slice(1).join(' ') || '',
+          firstname: profile.given_name || profile.givenName || nameParts[0] || '',
+          lastname: profile.family_name || profile.familyName || nameParts.slice(1).join(' ') || '',
         } as any;
 
         const user = await this.usersService.registerNewUserIfAllowed(userData);
