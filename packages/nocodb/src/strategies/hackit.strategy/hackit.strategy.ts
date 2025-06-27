@@ -21,52 +21,28 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
     super(clientConfig);
   }
 
-  // When passReqToCallback is true, the verify callback for OpenIDConnect has these parameters:
-  // req, issuer, uiProfile, idProfile, context, idToken, accessToken, refreshToken, params, done
+  // Standard passport-openidconnect signature (without passReqToCallback)
+  // (issuer, profile, done)
   async validate(
-    req: NcRequest,
     issuer: string,
-    uiProfile: any,
-    idProfile: any,
-    context: any,
-    idToken: string | object | undefined,
-    accessToken: string | object | undefined,
-    refreshToken: string | undefined,
-    params: any,
+    profile: any,
     done: VerifyCallback,
-  ): Promise<void> {
+  ): Promise<any> {
     try {
-      // Use uiProfile if available, otherwise use idProfile
-      const profile = uiProfile || idProfile || {};
-      
-      // Try multiple ways to get email
+      // Try multiple ways to get email from the profile
       const email = profile.email || 
                    profile.emails?.[0]?.value || 
-                   idProfile?.email ||
-                   idProfile?.emails?.[0]?.value;
+                   profile._json?.email;
       
       if (!email) {
-        done(new Error('No email found in HackIt profile'));
-        return;
+        return done(new Error('No email found in HackIt profile'));
       }
 
+      // We need to get req from context somehow, let's see if we can access it
+      // For now, let's try without req parameter
       const user = await User.getByEmail(email);
       if (user) {
-        // if base id defined extract base level roles
-        if (req.ncBaseId) {
-          try {
-            const baseUser = await BaseUser.get(req.context, req.ncBaseId, user.id);
-            user.roles = baseUser?.roles || user.roles;
-            done(null, sanitiseUserObj(user));
-            return;
-          } catch (e) {
-            done(e);
-            return;
-          }
-        } else {
-          done(null, sanitiseUserObj(user));
-          return;
-        }
+        return done(null, sanitiseUserObj(user));
       } else {
         // Create new user if allowed
         const salt = await promisify(bcrypt.genSalt)(10);
@@ -77,16 +53,13 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
           salt,
           firstname: profile.given_name || profile.name?.split(' ')[0] || '',
           lastname: profile.family_name || profile.name?.split(' ').slice(1).join(' ') || '',
-          req,
         } as any;
 
-        const newUser = await this.usersService.registerNewUserIfAllowed(userData);
-        done(null, sanitiseUserObj(newUser));
-        return;
+        const user = await this.usersService.registerNewUserIfAllowed(userData);
+        return done(null, sanitiseUserObj(user));
       }
     } catch (err) {
-      done(err);
-      return;
+      return done(err);
     }
   }
 
@@ -126,7 +99,7 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
       tokenURL: `${issuerUrl}/oidc/token`,
       userInfoURL: `${issuerUrl}/oidc/userinfo`,
       callbackURL: callbackURL,
-      passReqToCallback: true,
+      passReqToCallback: false,
       scope: ['openid', 'profile', 'email'],
       state: req.query.state,
       skipUserProfile: false,
@@ -157,7 +130,7 @@ export const HackItStrategyProvider: FactoryProvider = {
       tokenURL: `${issuerUrl}/oidc/token`,
       userInfoURL: `${issuerUrl}/oidc/userinfo`,
       callbackURL: '/auth/hackit/callback', // Will be dynamically set in authenticate method
-      passReqToCallback: true,
+      passReqToCallback: false,
       scope: ['openid', 'profile', 'email'],
       skipUserProfile: false,
       customHeaders: {
