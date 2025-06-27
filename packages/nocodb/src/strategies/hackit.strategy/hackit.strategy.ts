@@ -1,10 +1,11 @@
 import { promisify } from 'util';
 import { Injectable, Optional } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-openidconnect';
+import { Strategy as OAuth2Strategy } from 'passport-oauth2';
 import bcrypt from 'bcryptjs';
+import axios from 'axios';
 import type { Request } from 'express';
-import type { VerifyCallback } from 'passport-openidconnect';
+import type { VerifyCallback } from 'passport-oauth2';
 import type { FactoryProvider } from '@nestjs/common/interfaces/modules/provider.interface';
 import type { NcRequest } from '~/interface/config';
 import Noco from '~/Noco';
@@ -13,7 +14,7 @@ import { BaseUser, Plugin, User } from '~/models';
 import { sanitiseUserObj } from '~/utils';
 
 @Injectable()
-export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
+export class HackItStrategy extends PassportStrategy(OAuth2Strategy, 'hackit') {
   constructor(
     @Optional() clientConfig: any,
     private usersService: UsersService,
@@ -23,20 +24,31 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
 
   async validate(
     req: NcRequest,
-    iss: string,
-    sub: string,
-    profile: any,
     accessToken: string,
     refreshToken: string,
+    profile: any,
     done: VerifyCallback,
   ): Promise<any> {
-    const email = profile.emails?.[0]?.value || profile.email;
-    
-    if (!email) {
-      return done(new Error('No email found in HackIt profile'));
-    }
-
     try {
+      console.log('HackIt SSO validation started with access token:', accessToken);
+      
+      // Get user info from HackIt SSO using access token
+      const userInfoResponse = await axios.get('https://sso.hackit.tw/oidc/userinfo/', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      const userInfo = userInfoResponse.data;
+      console.log('User info from HackIt SSO:', userInfo);
+
+      const email = userInfo.email;
+      
+      if (!email) {
+        return done(new Error('No email found in HackIt profile'));
+      }
+
       const user = await User.getByEmail(email);
       if (user) {
         // if base id defined extract base level roles
@@ -58,8 +70,8 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
           email: email,
           password: '',
           salt,
-          firstname: profile.given_name || profile.name?.split(' ')[0] || '',
-          lastname: profile.family_name || profile.name?.split(' ').slice(1).join(' ') || '',
+          firstname: userInfo.given_name || userInfo.name?.split(' ')[0] || '',
+          lastname: userInfo.family_name || userInfo.name?.split(' ').slice(1).join(' ') || '',
           req,
         } as any;
 
@@ -67,6 +79,7 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
         return done(null, sanitiseUserObj(user));
       }
     } catch (err) {
+      console.error('Error in HackIt SSO validation:', err);
       return done(err);
     }
   }
@@ -81,36 +94,26 @@ export class HackItStrategy extends PassportStrategy(Strategy, 'hackit') {
     return params;
   }
 
-  async authenticate(req: Request, options?: any): Promise<void> {
-    const hackitPlugin = await Plugin.getPluginByTitle('HackIt');
-
-    if (hackitPlugin && hackitPlugin.input) {
-      const settings = JSON.parse(hackitPlugin.input);
-      process.env.NC_HACKIT_CLIENT_ID = settings.client_id;
-      process.env.NC_HACKIT_CLIENT_SECRET = settings.client_secret;
-      process.env.NC_HACKIT_ISSUER = settings.issuer;
-    }
-
+  authenticate(req: Request, options?: any): void {
+    console.log('HackIt SSO authenticate called:', { url: req.url, query: req.query });
+    
     if (!process.env.NC_HACKIT_CLIENT_ID || !process.env.NC_HACKIT_CLIENT_SECRET) {
       return this.error(new Error('HackIt client id or secret not found. Please add environment variables NC_HACKIT_CLIENT_ID and NC_HACKIT_CLIENT_SECRET.'));
     }
 
-    const issuerUrl = process.env.NC_HACKIT_ISSUER || 'https://sso.hackit.tw';
-    const callbackURL = req.ncSiteUrl + '/auth/hackit/callback';
-
-    return super.authenticate(req, {
+    const dynamicOptions = {
       ...options,
       clientID: process.env.NC_HACKIT_CLIENT_ID,
       clientSecret: process.env.NC_HACKIT_CLIENT_SECRET,
-      issuer: issuerUrl,
-      authorizationURL: `${issuerUrl}/oidc/authorize/`,
-      tokenURL: `${issuerUrl}/oidc/token/`,
-      userInfoURL: `${issuerUrl}/oidc/userinfo/`,
-      callbackURL: callbackURL,
+      authorizationURL: 'https://sso.hackit.tw/oidc/authorize/',
+      tokenURL: 'https://sso.hackit.tw/oidc/token/',
+      callbackURL: req.ncSiteUrl + '/auth/hackit/callback',
       passReqToCallback: true,
       scope: ['openid', 'profile', 'email'],
       state: req.query.state,
-    });
+    };
+
+    return super.authenticate(req, dynamicOptions);
   }
 }
 
@@ -118,23 +121,14 @@ export const HackItStrategyProvider: FactoryProvider = {
   provide: HackItStrategy,
   inject: [UsersService],
   useFactory: async (usersService: UsersService) => {
-    // Only initialize if environment variables are set
-    if (!process.env.NC_HACKIT_CLIENT_ID || !process.env.NC_HACKIT_CLIENT_SECRET) {
-      return new HackItStrategy(null, usersService);
-    }
-
-    const issuerUrl = process.env.NC_HACKIT_ISSUER || 'https://sso.hackit.tw';
-    
     const clientConfig = {
-      clientID: process.env.NC_HACKIT_CLIENT_ID,
-      clientSecret: process.env.NC_HACKIT_CLIENT_SECRET,
-      issuer: issuerUrl,
-      authorizationURL: `${issuerUrl}/oidc/authorize/`,
-      tokenURL: `${issuerUrl}/oidc/token/`,
-      userInfoURL: `${issuerUrl}/oidc/userinfo/`,
-      callbackURL: '/auth/hackit/callback', // Will be dynamically set in authenticate method
-      passReqToCallback: true,
+      authorizationURL: 'https://sso.hackit.tw/oidc/authorize/',
+      tokenURL: 'https://sso.hackit.tw/oidc/token/',
+      clientID: process.env.NC_HACKIT_CLIENT_ID || 'NocoDB',
+      clientSecret: process.env.NC_HACKIT_CLIENT_SECRET || '',
+      callbackURL: '/auth/hackit/callback',
       scope: ['openid', 'profile', 'email'],
+      passReqToCallback: true,
     };
 
     return new HackItStrategy(clientConfig, usersService);
