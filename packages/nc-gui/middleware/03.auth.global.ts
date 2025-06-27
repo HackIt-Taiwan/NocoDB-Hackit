@@ -64,6 +64,21 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return navigateTo('/sso')
   }
 
+  /** If user visits signin/signup pages but only HackIt SSO is enabled, redirect to HackIt SSO */
+  if (
+    !state.signedIn.value &&
+    (to.path === '/signin' || to.path === '/signup' || to.path.startsWith('/signup/')) &&
+    state.appInfo.value.hackitAuthEnabled && 
+    state.appInfo.value.disableEmailAuth && 
+    !state.appInfo.value.googleAuthEnabled &&
+    !state.appInfo.value.oidcAuthEnabled &&
+    !state.appInfo.value.samlAuthEnabled
+  ) {
+    localStorage.setItem('continueAfterSignIn', to.fullPath)
+    window.location.href = `${state.appInfo.value.ncSiteUrl}/auth/hackit?state=hackit`
+    return
+  }
+
   /** Try token population based on short-lived-token */
   await tryShortTokenAuth(api, state.signIn)
 
